@@ -6,7 +6,6 @@ require './common.rb'
 
 sock = UDPSocket.new
 sock.bind("127.0.0.1", RX_PORT)
-beacon_pkt = ['B', BEACON_TIME, 225].pack("a1CC");
 state = :init
 
 loop do
@@ -17,19 +16,24 @@ loop do
         puts "No beacons received, giving up!"
         Kernel.exit(-1)
       end
-      p sock.recv_packet
+      sock.recv_packet
       log state, "Beacon received, sending ACK."
-      sock.send 'A', 0, "127.0.0.1", RADIOMESH_PORT
-      state = :listening
+      sock.send_packet TetherAck.new
+      state = state_transition(state, :listening)
     when :listening
       sleep BEACON_TIME-TIMESLOT_LENGTH/2
       log state, "Timeslot open, waiting for beacon."
+      # anything already there right at the start of the slot came in
+      # while we were asleep and would be lost in real life
+      while(sock.recv_packet) do
+        log state, "Packet received outside of timeslot, would be lost."
+      end
       if(!IO.select([sock], nil, nil, TIMESLOT_LENGTH)) then
         log state, "No beacons received in timeslot!"
         next
       end
-      p sock.recv_packet
+      sock.recv_packet
       log state, "Beacon received, sending ACK."
-      sock.send 'A', 0, "127.0.0.1", RADIOMESH_PORT
+      sock.send_packet TetherAck.new
   end
 end

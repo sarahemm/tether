@@ -6,18 +6,23 @@ require './common.rb'
 
 sock = UDPSocket.new
 sock.bind("127.0.0.1", TX_PORT)
-beacon_pkt = ['B', BEACON_TIME, 225].pack("a1CC");
+beacon_pkt = TetherBeacon.new(BEACON_TIME, 225)
 state = :init
 
 loop do
   case(state)
     when :init
       log state, "Sending beacon."
-      sock.send beacon_pkt, 0, "127.0.0.1", RADIOMESH_PORT
-      state = :beaconing if pkt = sock.recv_packet(BEACON_TIME/3)
+      sock.send_packet beacon_pkt
+      frame = sock.recv_packet(BEACON_TIME/3)
+      if(!frame) then
+        log state, "No ack received so far, continuing."
+        next
+      end
+      state = state_transition(state, :beaconing) if frame.packet.class == TetherAck
     when :beaconing
       sleep BEACON_TIME
       log state, "Sending beacon."
-      sock.send beacon_pkt, 0, "127.0.0.1", RADIOMESH_PORT
+      sock.send_packet beacon_pkt
   end
 end
