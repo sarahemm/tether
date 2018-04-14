@@ -19,7 +19,7 @@ loop do
       end
       p sock.recv_packet
       log state, "Beacon received, sending ACK."
-      sock.send 'A', 0, "127.0.0.1", TX_PORT
+      sock.send 'A', 0, "127.0.0.1", RADIOMESH_PORT
       state = :listening
     when :listening
       sleep BEACON_TIME-TIMESLOT_LENGTH/2
@@ -30,6 +30,6 @@ loop do
       end
       p sock.recv_packet
       log state, "Beacon received, sending ACK."
-      sock.send 'A', 0, "127.0.0.1", TX_PORT
+      sock.send 'A', 0, "127.0.0.1", RADIOMESH_PORT
   end
 end

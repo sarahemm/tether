@@ -13,11 +13,11 @@ loop do
   case(state)
     when :init
       log state, "Sending beacon."
-      sock.send beacon_pkt, 0, "127.0.0.1", RX_PORT
+      sock.send beacon_pkt, 0, "127.0.0.1", RADIOMESH_PORT
       state = :beaconing if pkt = sock.recv_packet(BEACON_TIME/3)
     when :beaconing
       sleep BEACON_TIME
       log state, "Sending beacon."
-      sock.send beacon_pkt, 0, "127.0.0.1", RX_PORT
+      sock.send beacon_pkt, 0, "127.0.0.1", RADIOMESH_PORT
   end
 end

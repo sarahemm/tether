@@ -1,0 +1,18 @@
+#!/usr/bin/ruby
+
+require 'socket'
+require './variables.rb'
+require './common.rb'
+
+sock = UDPSocket.new
+sock.bind("127.0.0.1", RADIOMESH_PORT)
+loop do
+  log :mesh, "Waiting for packet..."
+  recv_buf = sock.recvfrom(32)
+  pkt = recv_buf[0]
+  sender = recv_buf[1][1]
+  log :mesh, "Got packet from #{sender}, relaying."
+  sock.send pkt, 0, "127.0.0.1", TX_PORT
+  sock.send pkt, 0, "127.0.0.1", RX_PORT
+  sock.send pkt, 0, "127.0.0.1", BASESTATION_PORT  
+end
