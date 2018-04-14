@@ -49,7 +49,7 @@ loop do
         unacked_reports += 1
         if(unacked_reports >= ACK_BASE_EVERY) then
           log state, "#{unacked_reports} reports received, sending ACK."
-          sock.send_packet TetherAck.new
+          sock.send_packet TetherAck.new(128)
           unacked_reports = 0
         end
       end

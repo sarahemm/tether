@@ -121,7 +121,13 @@ class TetherBaseReport < TetherPacket
 end
 
 class TetherAck < TetherPacket
+  attr_reader :rssi
+  
+  def initialize(rssi = 0xFF)
+    @rssi = rssi
+  end
+  
   def raw
-    return 'A'
+    return ['A', @rssi].pack("a1C")
   end
 end

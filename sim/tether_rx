@@ -20,7 +20,7 @@ loop do
       end
       sock.recv_packet
       log state, "Beacon received, sending ACK."
-      sock.send_packet TetherAck.new
+      sock.send_packet TetherAck.new(128)
       state = state_transition(state, :listening)
     when :listening
       sleep BEACON_TIME-TIMESLOT_LENGTH/2
@@ -34,7 +34,7 @@ loop do
       frame = sock.recv_packet
       if(frame.packet.class == TetherBeacon) then
         log state, "Beacon received, sending ACK."
-        sock.send_packet TetherAck.new
+        sock.send_packet TetherAck.new(128)
       elsif(frame.packet.class == TetherBaseReport)
         log state, "Base station now in range."
         base_sleep_time = frame.packet.next_beacon_in
@@ -65,7 +65,7 @@ loop do
         unacked_reports += 1
         if(unacked_reports >= ACK_BASE_EVERY) then
           log state, "#{unacked_reports} reports received, sending ACK."
-          sock.send_packet TetherAck.new
+          sock.send_packet TetherAck.new(128)
           unacked_reports = 0
         end
       end
