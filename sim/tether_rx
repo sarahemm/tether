@@ -1,0 +1,35 @@
+#!/usr/bin/ruby
+
+require 'socket'
+require './variables.rb'
+require './common.rb'
+
+sock = UDPSocket.new
+sock.bind("127.0.0.1", RX_PORT)
+beacon_pkt = ['B', BEACON_TIME, 225].pack("a1CC");
+state = :init
+
+loop do
+  case(state)
+    when :init
+      log state, "Waiting for beacon..."
+      if(!IO.select([sock], nil, nil, INIT_TIMEOUT)) then
+        puts "No beacons received, giving up!"
+        Kernel.exit(-1)
+      end
+      p sock.recv_packet
+      log state, "Beacon received, sending ACK."
+      sock.send 'A', 0, "127.0.0.1", TX_PORT
+      state = :listening
+    when :listening
+      sleep BEACON_TIME-TIMESLOT_LENGTH/2
+      log state, "Timeslot open, waiting for beacon."
+      if(!IO.select([sock], nil, nil, TIMESLOT_LENGTH)) then
+        log state, "No beacons received in timeslot!"
+        next
+      end
+      p sock.recv_packet
+      log state, "Beacon received, sending ACK."
+      sock.send 'A', 0, "127.0.0.1", TX_PORT
+  end
+end

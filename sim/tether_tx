@@ -1,0 +1,23 @@
+#!/usr/bin/ruby
+
+require 'socket'
+require './variables.rb'
+require './common.rb'
+
+sock = UDPSocket.new
+sock.bind("127.0.0.1", TX_PORT)
+beacon_pkt = ['B', BEACON_TIME, 225].pack("a1CC");
+state = :init
+
+loop do
+  case(state)
+    when :init
+      log state, "Sending beacon."
+      sock.send beacon_pkt, 0, "127.0.0.1", RX_PORT
+      state = :beaconing if pkt = sock.recv_packet(BEACON_TIME/3)
+    when :beaconing
+      sleep BEACON_TIME
+      log state, "Sending beacon."
+      sock.send beacon_pkt, 0, "127.0.0.1", RX_PORT
+  end
+end
