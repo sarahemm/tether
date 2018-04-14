@@ -8,6 +8,7 @@ sock = UDPSocket.new
 sock.bind("127.0.0.1", RX_PORT)
 state = :init
 base_sleep_time = BEACON_TIME
+unacked_reports = 0
 
 loop do
   case(state)
@@ -60,6 +61,13 @@ loop do
       elsif(frame.packet.class == TetherBeacon)
         log state, "Beacon received."
         state = state_transition(state, :listening)
+      else
+        unacked_reports += 1
+        if(unacked_reports >= ACK_BASE_EVERY) then
+          log state, "#{unacked_reports} reports received, sending ACK."
+          sock.send_packet TetherAck.new
+          unacked_reports = 0
+        end
       end
   end
 end

@@ -9,6 +9,7 @@ sock.bind("127.0.0.1", TX_PORT)
 beacon_pkt = TetherBeacon.new(BEACON_TIME, 225)
 state = :init
 base_sleep_time = BEACON_TIME
+unacked_reports = 0
 
 loop do
   case(state)
@@ -44,6 +45,13 @@ loop do
         sock.send_packet beacon_pkt
         state = state_transition(state, :beaconing)
         next
+      else
+        unacked_reports += 1
+        if(unacked_reports >= ACK_BASE_EVERY) then
+          log state, "#{unacked_reports} reports received, sending ACK."
+          sock.send_packet TetherAck.new
+          unacked_reports = 0
+        end
       end
   end
 end

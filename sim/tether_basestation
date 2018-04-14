@@ -9,6 +9,7 @@ sock.bind("127.0.0.1", BASESTATION_PORT)
 state = :init
 
 base_sleep_time = BEACON_TIME
+reports_unacked = 0
 
 loop do
   case(state)
@@ -25,10 +26,25 @@ loop do
       sock.timeslot_start state
       log state, "Sending base report."
       sock.send_packet TetherBaseReport.new(BASE_REPORT_TIME, 0, Time.now)
+      reports_unacked += 1
       state = state_transition(state, :reporting)
-    when :reporting
       sleep BASE_REPORT_TIME
+    when :reporting
       log state, "Sending base report."
       sock.send_packet TetherBaseReport.new(BASE_REPORT_TIME, 0, Time.now)
+      frame = sock.recv_packet(ACK_TIMEOUT)
+      if(frame and frame.packet.class == TetherAck)
+        reports_unacked = 0
+        log state, "ACK received."
+      else
+        reports_unacked += 1
+      end
+      if(reports_unacked > ACK_BASE_EVERY+1) then
+        log state, "No ACKs received from TX or RX in awhile, assuming they left."
+        reports_unacked = 0
+        state = state_transition(state, :init)
+        next
+      end
+      sleep BASE_REPORT_TIME-ACK_TIMEOUT
   end
 end
