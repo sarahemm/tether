@@ -7,6 +7,7 @@ require './common.rb'
 sock = UDPSocket.new
 sock.bind("127.0.0.1", RX_PORT)
 state = :init
+base_sleep_time = BEACON_TIME
 
 loop do
   case(state)
@@ -23,17 +24,42 @@ loop do
     when :listening
       sleep BEACON_TIME-TIMESLOT_LENGTH/2
       log state, "Timeslot open, waiting for beacon."
-      # anything already there right at the start of the slot came in
-      # while we were asleep and would be lost in real life
-      while(sock.recv_packet) do
-        log state, "Packet received outside of timeslot, would be lost."
-      end
+      sock.timeslot_start state
       if(!IO.select([sock], nil, nil, TIMESLOT_LENGTH)) then
-        log state, "No beacons received in timeslot!"
+        log state, "ALERT: Lost signal from transmitter unit!"
+        state = state_transition(state, :txlost)
+        next
+      end
+      frame = sock.recv_packet
+      if(frame.packet.class == TetherBeacon) then
+        log state, "Beacon received, sending ACK."
+        sock.send_packet TetherAck.new
+      elsif(frame.packet.class == TetherBaseReport)
+        log state, "Base station now in range."
+        base_sleep_time = frame.packet.next_beacon_in
+        state = state_transition(state, :baseinrange)
+      end  
+    when :txlost
+      sleep BEACON_TIME * 5
+      log state, "Timeslot open, waiting for beacon."
+      if(!IO.select([sock], nil, nil, BEACON_TIME + TIMESLOT_LENGTH)) then
+        log state, "Signal from transmitter still not re-acquired."
         next
       end
       sock.recv_packet
-      log state, "Beacon received, sending ACK."
-      sock.send_packet TetherAck.new
+      state = state_transition(state, :listening)
+    when :baseinrange
+      log state, "Base station in range, going to sleep for awhile."
+      sleep base_sleep_time - TIMESLOT_LENGTH/2
+      log state, "Timeslot open, waiting to see if base station is still in range."
+      sock.timeslot_start state
+      frame = sock.recv_packet(TIMESLOT_LENGTH)
+      if(!frame) then
+        log state, "Base station signal lost."
+        state = state_transition(state, :beaconing)
+      elsif(frame.packet.class == TetherBeacon)
+        log state, "Beacon received."
+        state = state_transition(state, :listening)
+      end
   end
 end

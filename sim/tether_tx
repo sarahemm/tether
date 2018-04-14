@@ -8,6 +8,7 @@ sock = UDPSocket.new
 sock.bind("127.0.0.1", TX_PORT)
 beacon_pkt = TetherBeacon.new(BEACON_TIME, 225)
 state = :init
+base_sleep_time = BEACON_TIME
 
 loop do
   case(state)
@@ -21,8 +22,28 @@ loop do
       end
       state = state_transition(state, :beaconing) if frame.packet.class == TetherAck
     when :beaconing
-      sleep BEACON_TIME
+      sleep BEACON_TIME - TIMESLOT_LENGTH/2
+      sock.timeslot_start state
+      log state, "Timeslot open, waiting to see if base station is in range."
+      frame = sock.recv_packet(TIMESLOT_LENGTH/2)
+      if(frame and frame.packet.class == TetherBaseReport) then
+        state = state_transition(state, :baseinrange)
+        base_sleep_time = frame.packet.next_beacon_in
+        next
+      end
       log state, "Sending beacon."
       sock.send_packet beacon_pkt
+    when :baseinrange
+      log state, "Base station in range, going to sleep for awhile."
+      sleep base_sleep_time - TIMESLOT_LENGTH/2
+      log state, "Timeslot open, waiting to see if base station is still in range."
+      sock.timeslot_start state
+      frame = sock.recv_packet(TIMESLOT_LENGTH*0.75)
+      if(!frame or frame.packet.class != TetherBaseReport) then
+        log state, "Base station signal lost."
+        sock.send_packet beacon_pkt
+        state = state_transition(state, :beaconing)
+        next
+      end
   end
 end

@@ -1,0 +1,34 @@
+#!/usr/bin/ruby
+
+require 'socket'
+require './variables.rb'
+require './common.rb'
+
+sock = UDPSocket.new
+sock.bind("127.0.0.1", BASESTATION_PORT)
+state = :init
+
+base_sleep_time = BEACON_TIME
+
+loop do
+  case(state)
+    when :init
+      log state, "Waiting for beacon."
+      frame = sock.recv_packet(60)
+      if(frame and frame.packet.class == TetherBeacon) then
+        state = state_transition(state, :beaconsync)  
+        next
+      end
+      log state, "Still waiting for beacon."
+    when :beaconsync
+      sleep BEACON_TIME - TIMESLOT_LENGTH/4
+      sock.timeslot_start state
+      log state, "Sending base report."
+      sock.send_packet TetherBaseReport.new(BASE_REPORT_TIME, 0, Time.now)
+      state = state_transition(state, :reporting)
+    when :reporting
+      sleep BASE_REPORT_TIME
+      log state, "Sending base report."
+      sock.send_packet TetherBaseReport.new(BASE_REPORT_TIME, 0, Time.now)
+  end
+end

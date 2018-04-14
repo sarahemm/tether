@@ -13,6 +13,14 @@ class UDPSocket
   def send_packet(packet)
     self.send packet.raw, 0, "127.0.0.1", RADIOMESH_PORT
   end
+  
+  def timeslot_start(state)
+    # anything already in the buffer right at the start of the slot came in
+    # while we were asleep and would be lost in real life
+    while(self.recv_packet) do
+      log state, "Packet received outside of timeslot, would be lost."
+    end
+  end
 end
 
 def state_transition(old_state, new_state)
@@ -21,7 +29,7 @@ def state_transition(old_state, new_state)
 end
 
 def log(state, msg)
-  puts "#{Time.now.strftime("%H:%M:%S")}: [#{state}] #{msg}"
+  STDOUT.puts "#{Time.now.strftime("%H:%M:%S")}: [#{state}] #{msg}"
 end
 
 def port_to_sender(port)
@@ -45,6 +53,9 @@ def decode_packet(packet)
     when 'B'
       beacon_type, next_beacon_in, battery_level = packet.unpack("a1CC")
       return TetherBeacon.new(next_beacon_in, battery_level)
+    when 'R'
+      beacon_type, next_beacon_in, base_id, hours, minutes, seconds = packet.unpack("a1CCCCC")
+      return TetherBaseReport.new(next_beacon_in, base_id, hours, minutes, seconds)
     else
       STDOUT.puts "Unknown packet passed to decode_packet"
   end
@@ -82,7 +93,30 @@ class TetherBeacon < TetherPacket
   end
   
   def raw
-    return ['B', next_beacon_in, battery_level].pack("a1CC");
+    return ['B', @next_beacon_in, @battery_level].pack("a1CC");
+  end
+end
+
+class TetherBaseReport < TetherPacket
+  attr_reader :next_beacon_in, :base_id, :hours, :minutes, :seconds
+  
+  def initialize(next_beacon_in, base_id, hours_or_time, minutes = nil, seconds = nil)
+    @next_beacon_in = next_beacon_in
+    @base_id = base_id
+    if(hours_or_time.class == Time) then
+      now = Time.now
+      @hours = now.hour
+      @minutes = now.min
+      @seconds = now.sec
+    else
+      @hours = hours_or_time
+      @minutes = minutes
+      @seconds = seconds
+    end
+  end
+  
+  def raw
+    return ['R', @next_beacon_in, @base_id, @hours, @minutes, @seconds].pack("a1CCCCC");
   end
 end
 
